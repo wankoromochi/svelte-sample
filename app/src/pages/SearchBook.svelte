@@ -1,23 +1,28 @@
 <script lang="ts">
+  import { books } from '../store/book';
+
   import SearchBar from '../components/SearchBar.svelte'
   import Spinner from '../components/Spinner.svelte';
   import BookCard from '../components/BookCard.svelte';
 
+  import RepositoryFactory, { BOOK } from '../repositories/RepositoryFactory'
+
   import InfiniteScroll from "svelte-infinite-scroll"
 
-  import type { BookItem } from '../repositories/book';
-  import RepositoryFactory, { BOOK } from '../repositories/RepositoryFactory'
+  /** api */
   const BookRepository = RepositoryFactory[BOOK]
-
   /** 検索値の初期値 */
   let q = ''
   /** 取得した配列 */
-  let books: BookItem[] = []
+  // let books: BookItem[] = []
   let promise: Promise<void>
   /** 取得開始ページ */
   let startIndex = 0;
   /** データの件数 */
   let totalItems = 0
+
+  /** ページ表示時にstoreリセット */
+  books.reset()
 
   /** 検索ボタン押下時の処理 */
   const handleSubmit = () => {
@@ -28,17 +33,17 @@
   /** 本一覧取得 */
   const getBooks = async () => {
     // 配列をリセット
-    books = []
+    books.reset()
     // apiをコールし、データを取得
     const result = await BookRepository.get({ q })
     // レスポンスデータをローカル配列に格納
-    books = result.items
+    books.add(result.items)
     // レスポンスデータの件数を格納
     totalItems = result.totalItems
   }
 
   /** ページ数のカウント(watch) */
-  $: hasMore = totalItems > books.length
+  $: hasMore = totalItems > $books.length
 
   /** もっと見るの挙動 */
   const handleLoadMore = () => {
@@ -51,11 +56,11 @@
     const result = await BookRepository.get({ q, startIndex });
   
     // 取得データが既に存在するものを含む可能性があるので、idでフィルタリングしてます。
-    const bookIds = books.map((book) => book.id);
+    const bookIds = $books.map((book) => book.id);
     const filteredItems = result.items.filter((item) => {
       return !bookIds.includes(item.id);
     });
-    books = [...books, ...filteredItems];
+    books.add(filteredItems)
   };
 </script>
 
@@ -66,7 +71,7 @@
  
   <div class="text-center mt-4">
     <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
-      {#each books as book (book.id)}
+      {#each $books as book (book.id)}
         <BookCard {book} />
       {:else}
         <div>検索結果が見つかりませんでした。</div>
